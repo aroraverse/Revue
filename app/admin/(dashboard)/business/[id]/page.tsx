@@ -2,10 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Business, Card, Feedback } from "@/lib/types";
-import { qrLink, nfcLink, publicLink, qrSvg, qrPngDataUrl } from "@/lib/qr";
+import { baseUrl, linksFor } from "@/lib/qr";
 import { getBusinessAnalytics, type Counts } from "@/lib/analytics";
 import { updateBusiness, setCardStatus } from "../../business-actions";
 import CardTools from "./CardTools";
+import DeleteBusinessButton from "./DeleteBusinessButton";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ function CountRow({ label, c }: { label: string; c: Counts }) {
   return (
     <div className="flex items-center justify-between py-1 text-sm">
       <span className="text-slate-500">{label}</span>
-      <span className="flex gap-3">
+      <span className="flex flex-wrap gap-2 text-right">
         <span>QR {c.QR}</span>
         <span>NFC {c.NFC}</span>
         <span>Google {c.GOOGLE_CLICK}</span>
@@ -32,44 +33,23 @@ export default async function BusinessDetail({
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: business } = await supabase
-    .from("businesses")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
+  // Parallelize all queries + base URL resolution.
+  const [{ data: business }, { data: cardData }, { data: lowFb }, analytics, base] =
+    await Promise.all([
+      supabase.from("businesses").select("*").eq("id", id).maybeSingle(),
+      supabase
+        .from("cards")
+        .select("*")
+        .eq("business_id", id)
+        .order("public_token", { ascending: true }),
+      supabase.from("feedback").select("id").eq("business_id", id).lte("stars", 3),
+      getBusinessAnalytics(id),
+      baseUrl(),
+    ]);
 
   if (!business) notFound();
   const b = business as Business;
-
-  const { data: cardData } = await supabase
-    .from("cards")
-    .select("*")
-    .eq("business_id", id)
-    .order("public_token", { ascending: true });
   const cards = (cardData ?? []) as Card[];
-
-  const analytics = await getBusinessAnalytics(id);
-
-  // Prebuild QR assets for each assigned card (server-side, no external service).
-  const qr: Record<string, { svg: string; png: string; qr: string; nfc: string; pub: string }> = {};
-  await Promise.all(
-    cards.map(async (c) => {
-      qr[c.id] = {
-        svg: await qrSvg(c.public_token),
-        png: await qrPngDataUrl(c.public_token),
-        qr: await qrLink(c.public_token),
-        nfc: await nfcLink(c.public_token),
-        pub: await publicLink(c.public_token),
-      };
-    })
-  );
-
-  // Low-rating feedback count for the inbox link (RLS-scoped).
-  const { data: lowFb } = await supabase
-    .from("feedback")
-    .select("id")
-    .eq("business_id", id)
-    .lte("stars", 3);
   const lowCount = (lowFb as Feedback[] | null)?.length ?? 0;
 
   return (
@@ -116,6 +96,7 @@ export default async function BusinessDetail({
             name="name"
             required
             defaultValue={b.name}
+            placeholder="Business name"
             className="rounded-lg border border-slate-300 p-2.5"
           />
           <select
@@ -150,15 +131,20 @@ export default async function BusinessDetail({
             placeholder="Google review URL"
             className="rounded-lg border border-slate-300 p-2.5"
           />
-          <button className="rounded-lg bg-brand px-5 py-2.5 font-semibold text-white">
-            Save changes
-          </button>
+          <div className="flex flex-wrap gap-3">
+            <button className="rounded-lg bg-brand px-5 py-2.5 font-semibold text-white">
+              Save changes
+            </button>
+          </div>
         </form>
+        <div className="mt-3">
+          <DeleteBusinessButton businessId={b.id} />
+        </div>
       </section>
 
       {/* Assigned cards */}
       <section>
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-semibold">Assigned cards</h2>
           <Link
             href="/admin/cards"
@@ -175,13 +161,14 @@ export default async function BusinessDetail({
         ) : (
           <ul className="flex flex-col gap-4">
             {cards.map((c) => {
+              const l = linksFor(base, c.public_token);
               const cardCounts = analytics.perCard[c.id];
               return (
                 <li
                   key={c.id}
                   className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4"
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-bold">
                         {c.public_token}
@@ -210,14 +197,14 @@ export default async function BusinessDetail({
                     </form>
                   </div>
 
-                  <div className="text-xs text-slate-500">
+                  <div className="text-xs text-slate-500 break-all">
                     <a
-                      href={qr[c.id].pub}
+                      href={l.pub}
                       target="_blank"
                       rel="noreferrer"
-                      className="break-all underline"
+                      className="underline"
                     >
-                      {qr[c.id].pub}
+                      {l.pub}
                     </a>
                   </div>
 
@@ -230,10 +217,8 @@ export default async function BusinessDetail({
 
                   <CardTools
                     token={c.public_token}
-                    qrLink={qr[c.id].qr}
-                    nfcLink={qr[c.id].nfc}
-                    svg={qr[c.id].svg}
-                    png={qr[c.id].png}
+                    qrLink={l.qr}
+                    nfcLink={l.nfc}
                   />
                 </li>
               );

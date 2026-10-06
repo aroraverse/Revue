@@ -2,37 +2,25 @@
 
 import { useState } from "react";
 
+/**
+ * Card QR/NFC tools. QR images are fetched on demand from
+ * /admin/qr/[token] (PNG or ?format=svg), so the parent page never has to
+ * pre-generate QR codes for every card — this is the main lag fix.
+ */
 export default function CardTools({
   token,
   qrLink,
   nfcLink,
-  svg,
-  png,
 }: {
   token: string;
   qrLink: string;
   nfcLink: string;
-  svg: string;
-  png: string;
 }) {
   const [copied, setCopied] = useState<"nfc" | "qr" | null>(null);
   const [showQr, setShowQr] = useState(false);
 
-  function download(filename: string, href: string) {
-    const a = document.createElement("a");
-    a.href = href;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  }
-
-  function downloadSvg() {
-    const blob = new Blob([svg], { type: "image/svg+xml" });
-    const url = URL.createObjectURL(blob);
-    download(`${token}.svg`, url);
-    URL.revokeObjectURL(url);
-  }
+  const pngUrl = `/admin/qr/${token}`;
+  const svgUrl = `/admin/qr/${token}?format=svg`;
 
   async function copy(text: string, which: "nfc" | "qr") {
     try {
@@ -53,18 +41,20 @@ export default function CardTools({
         >
           {showQr ? "Hide QR" : "Show QR"}
         </button>
-        <button
-          onClick={downloadSvg}
+        <a
+          href={`${svgUrl}&download=1`}
+          download={`${token}.svg`}
           className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium"
         >
-          Download SVG
-        </button>
-        <button
-          onClick={() => download(`${token}.png`, png)}
+          SVG
+        </a>
+        <a
+          href={pngUrl}
+          download={`${token}.png`}
           className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium"
         >
-          Download PNG
-        </button>
+          PNG
+        </a>
         <button
           onClick={() => copy(qrLink, "qr")}
           className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium"
@@ -82,15 +72,16 @@ export default function CardTools({
       {showQr && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={png}
+          src={pngUrl}
           alt={`QR code for card ${token}`}
+          loading="lazy"
           className="h-40 w-40 rounded border border-slate-200 bg-white p-2"
         />
       )}
 
       <dl className="text-xs text-slate-500">
-        <div className="flex gap-1">
-          <dt className="font-medium">NFC URL:</dt>
+        <div className="flex flex-col gap-0.5">
+          <dt className="font-medium">NFC URL</dt>
           <dd className="break-all">{nfcLink}</dd>
         </div>
       </dl>

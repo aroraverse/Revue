@@ -13,6 +13,7 @@ export default async function AdminHome() {
   const { data } = await supabase
     .from("businesses")
     .select("*")
+    .is("deleted_at", null)
     .order("created_at", { ascending: false });
   const businesses = (data ?? []) as Business[];
 

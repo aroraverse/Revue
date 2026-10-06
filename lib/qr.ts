@@ -46,6 +46,19 @@ export async function publicLink(token: string): Promise<string> {
   return `${await baseUrl()}/c/${token}`;
 }
 
+/**
+ * Build qr/nfc/public links for a token given an already-resolved base URL.
+ * Use this in list pages: resolve baseUrl() ONCE, then map over cards, instead
+ * of calling the async helpers per card.
+ */
+export function linksFor(base: string, token: string) {
+  return {
+    qr: `${base}/c/${token}?s=q`,
+    nfc: `${base}/c/${token}?s=n`,
+    pub: `${base}/c/${token}`,
+  };
+}
+
 /** Generate an SVG string QR (error correction H) for the QR link. */
 export async function qrSvg(token: string): Promise<string> {
   return QRCode.toString(await qrLink(token), {

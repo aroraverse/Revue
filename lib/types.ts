@@ -21,6 +21,7 @@ export interface Business {
   google_review_url: string;
   owner_user_id: string | null;
   created_at: string;
+  deleted_at: string | null;
 }
 
 export interface Card {

@@ -38,6 +38,8 @@ async function lookupCard(token: string): Promise<LookupResult> {
 
     if (bErr) return { kind: "db_error" };
     if (!business) return { kind: "unknown" };
+    // Business was soft-deleted: show the friendly inactive page.
+    if (business.deleted_at) return { kind: "disabled" };
 
     return { kind: "ok", card: card as Card, business: business as Business };
   } catch {

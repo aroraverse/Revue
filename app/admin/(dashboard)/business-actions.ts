@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
@@ -62,9 +63,79 @@ export async function updateBusiness(formData: FormData) {
 }
 
 /**
- * Admin-only check. The card pool is managed by admins; this guards the
- * minting/assignment actions and gives a clear error if a non-admin tries.
+ * Soft-delete a business: set deleted_at. Never hard-deletes, so cards and
+ * history are preserved. Allowed for admins and the owning user (RLS update
+ * policy already restricts this). Owners can delete their own business.
  */
+export async function deleteBusiness(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) throw new Error("You must be signed in.");
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("businesses")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw new Error(`Could not delete business: ${error.message}`);
+
+  revalidatePath("/admin");
+  redirect("/admin");
+}
+
+/**
+ * Admin provisions a business owner login: creates a Supabase auth user with
+ * the given email+password (email pre-confirmed), ensures their profile role
+ * is 'owner', and assigns them as owner of the chosen business so they see
+ * only that business after logging in.
+ */
+export async function createOwnerUser(formData: FormData) {
+  await requireAdmin();
+
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+  const businessId = String(formData.get("business_id") ?? "");
+
+  if (!email || password.length < 6) {
+    throw new Error("Email and a password of at least 6 characters are required.");
+  }
+
+  const admin = createAdminClient();
+
+  // Create the auth user (email confirmed so they can log in immediately).
+  const { data: created, error: createErr } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  });
+  if (createErr || !created.user) {
+    throw new Error(`Could not create user: ${createErr?.message ?? "unknown"}`);
+  }
+
+  const userId = created.user.id;
+
+  // Ensure a profile row exists with role 'owner' (the signup trigger may also
+  // create one; upsert makes this idempotent).
+  const { error: profErr } = await admin
+    .from("profiles")
+    .upsert({ user_id: userId, role: "owner" }, { onConflict: "user_id" });
+  if (profErr) throw new Error(`Could not set profile: ${profErr.message}`);
+
+  // Assign the business to this owner, if one was chosen.
+  if (businessId) {
+    const { error: assignErr } = await admin
+      .from("businesses")
+      .update({ owner_user_id: userId })
+      .eq("id", businessId);
+    if (assignErr) {
+      throw new Error(`User created, but assigning business failed: ${assignErr.message}`);
+    }
+  }
+
+  revalidatePath("/admin/users");
+}
 async function requireAdmin() {
   const user = await getCurrentUser();
   if (!user) throw new Error("You must be signed in.");
