@@ -4,11 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Business, Card, Feedback } from "@/lib/types";
 import { qrLink, nfcLink, publicLink, qrSvg, qrPngDataUrl } from "@/lib/qr";
 import { getBusinessAnalytics, type Counts } from "@/lib/analytics";
-import {
-  updateBusiness,
-  createCard,
-  setCardStatus,
-} from "../../business-actions";
+import { updateBusiness, setCardStatus } from "../../business-actions";
 import CardTools from "./CardTools";
 
 export const dynamic = "force-dynamic";
@@ -54,13 +50,16 @@ export default async function BusinessDetail({
 
   const analytics = await getBusinessAnalytics(id);
 
-  // Prebuild QR assets for each card (server-side, no external service).
-  const qr: Record<string, { svg: string; png: string }> = {};
+  // Prebuild QR assets for each assigned card (server-side, no external service).
+  const qr: Record<string, { svg: string; png: string; qr: string; nfc: string; pub: string }> = {};
   await Promise.all(
     cards.map(async (c) => {
       qr[c.id] = {
         svg: await qrSvg(c.public_token),
         png: await qrPngDataUrl(c.public_token),
+        qr: await qrLink(c.public_token),
+        nfc: await nfcLink(c.public_token),
+        pub: await publicLink(c.public_token),
       };
     })
   );
@@ -157,20 +156,22 @@ export default async function BusinessDetail({
         </form>
       </section>
 
-      {/* Cards */}
+      {/* Assigned cards */}
       <section>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-semibold">Cards</h2>
-          <form action={createCard}>
-            <input type="hidden" name="business_id" value={b.id} />
-            <button className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white">
-              + Add card
-            </button>
-          </form>
+          <h2 className="font-semibold">Assigned cards</h2>
+          <Link
+            href="/admin/cards"
+            className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white"
+          >
+            Assign from pool
+          </Link>
         </div>
 
         {cards.length === 0 ? (
-          <p className="text-slate-500">No cards yet.</p>
+          <p className="text-slate-500">
+            No cards assigned yet. Go to the card pool to assign one.
+          </p>
         ) : (
           <ul className="flex flex-col gap-4">
             {cards.map((c) => {
@@ -211,12 +212,12 @@ export default async function BusinessDetail({
 
                   <div className="text-xs text-slate-500">
                     <a
-                      href={publicLink(c.public_token)}
+                      href={qr[c.id].pub}
                       target="_blank"
                       rel="noreferrer"
                       className="break-all underline"
                     >
-                      {publicLink(c.public_token)}
+                      {qr[c.id].pub}
                     </a>
                   </div>
 
@@ -229,8 +230,8 @@ export default async function BusinessDetail({
 
                   <CardTools
                     token={c.public_token}
-                    qrLink={qrLink(c.public_token)}
-                    nfcLink={nfcLink(c.public_token)}
+                    qrLink={qr[c.id].qr}
+                    nfcLink={qr[c.id].nfc}
                     svg={qr[c.id].svg}
                     png={qr[c.id].png}
                   />

@@ -21,6 +21,12 @@ export default async function DashboardLayout({
           <Link href="/admin" className="text-slate-600 hover:text-slate-900">
             Businesses
           </Link>
+          <Link
+            href="/admin/cards"
+            className="text-slate-600 hover:text-slate-900"
+          >
+            Card pool
+          </Link>
           <a
             href="/admin/export"
             className="text-slate-600 hover:text-slate-900"

@@ -24,6 +24,10 @@ async function lookupCard(token: string): Promise<LookupResult> {
 
     if (error) return { kind: "db_error" };
     if (!card) return { kind: "unknown" };
+    // Pre-minted pool card not yet assigned to a business.
+    if (card.status === "unassigned" || !card.business_id) {
+      return { kind: "disabled" };
+    }
     if (card.status !== "active") return { kind: "disabled" };
 
     const { data: business, error: bErr } = await supabase

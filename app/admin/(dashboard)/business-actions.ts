@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import type { BusinessType } from "@/lib/types";
 
@@ -19,13 +20,13 @@ function parseType(v: FormDataEntryValue | null): BusinessType {
   return (TYPES as string[]).includes(s) ? (s as BusinessType) : "other";
 }
 
-/** Create a business owned by the current user. RLS enforces ownership. */
+/** Create a business owned by the current user. */
 export async function createBusiness(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) return;
 
   const supabase = await createClient();
-  await supabase.from("businesses").insert({
+  const { error } = await supabase.from("businesses").insert({
     name: String(formData.get("name") ?? "").trim(),
     type: parseType(formData.get("type")),
     summary: String(formData.get("summary") ?? "").trim() || null,
@@ -33,17 +34,18 @@ export async function createBusiness(formData: FormData) {
     google_review_url: String(formData.get("google_review_url") ?? "").trim(),
     owner_user_id: user.id,
   });
+  if (error) throw new Error(`Could not create business: ${error.message}`);
 
   revalidatePath("/admin");
 }
 
-/** Update a business. RLS restricts to admin or owner. */
+/** Update a business. */
 export async function updateBusiness(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
   const supabase = await createClient();
-  await supabase
+  const { error } = await supabase
     .from("businesses")
     .update({
       name: String(formData.get("name") ?? "").trim(),
@@ -53,44 +55,101 @@ export async function updateBusiness(formData: FormData) {
       google_review_url: String(formData.get("google_review_url") ?? "").trim(),
     })
     .eq("id", id);
+  if (error) throw new Error(`Could not update business: ${error.message}`);
 
   revalidatePath("/admin");
   revalidatePath(`/admin/business/${id}`);
 }
 
 /**
- * Create the next card for a business. Tokens are sequential like A001, A002…
- * computed from the current max token for THIS business, and never reused.
+ * Admin-only check. The card pool is managed by admins; this guards the
+ * minting/assignment actions and gives a clear error if a non-admin tries.
  */
-export async function createCard(formData: FormData) {
-  const businessId = String(formData.get("business_id") ?? "");
-  if (!businessId) return;
-
-  const supabase = await createClient();
-
-  // Find the highest existing numeric suffix for this business's tokens.
-  const { data: cards } = await supabase
-    .from("cards")
-    .select("public_token")
-    .eq("business_id", businessId);
-
-  let maxNum = 0;
-  for (const c of cards ?? []) {
-    const m = /^[A-Za-z]*(\d+)$/.exec(c.public_token);
-    if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
+async function requireAdmin() {
+  const user = await getCurrentUser();
+  if (!user) throw new Error("You must be signed in.");
+  if (user.role !== "admin") {
+    throw new Error(
+      "Only an admin can mint or assign cards. Set your profile role to 'admin'."
+    );
   }
-  const next = `A${String(maxNum + 1).padStart(3, "0")}`;
+  return user;
+}
 
-  await supabase.from("cards").insert({
-    business_id: businessId,
-    public_token: next,
-    status: "active",
-  });
+/**
+ * Mint a batch of blank, UNASSIGNED cards into the pool. Tokens come from a
+ * global DB sequence (A001, A002, …) so they are unique and never reused.
+ * Uses the service role for the insert so it works regardless of RLS timing,
+ * after confirming the caller is an admin.
+ */
+export async function mintCards(formData: FormData) {
+  await requireAdmin();
 
+  const count = Math.max(
+    1,
+    Math.min(500, parseInt(String(formData.get("count") ?? "1"), 10) || 1)
+  );
+
+  const admin = createAdminClient();
+
+  // Pull `count` tokens from the DB sequence.
+  const tokens: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const { data, error } = await admin.rpc("next_card_token");
+    if (error) throw new Error(`Could not mint tokens: ${error.message}`);
+    tokens.push(data as unknown as string);
+  }
+
+  const rows = tokens.map((t) => ({
+    public_token: t,
+    business_id: null,
+    status: "unassigned" as const,
+  }));
+
+  const { error } = await admin.from("cards").insert(rows);
+  if (error) throw new Error(`Could not create cards: ${error.message}`);
+
+  revalidatePath("/admin/cards");
+}
+
+/**
+ * Assign an existing pool card to a business and activate it.
+ * Admin-only. Reassigning is allowed (moves the card to another business).
+ */
+export async function assignCard(formData: FormData) {
+  await requireAdmin();
+  const cardId = String(formData.get("card_id") ?? "");
+  const businessId = String(formData.get("business_id") ?? "");
+  if (!cardId || !businessId) return;
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("cards")
+    .update({ business_id: businessId, status: "active" })
+    .eq("id", cardId);
+  if (error) throw new Error(`Could not assign card: ${error.message}`);
+
+  revalidatePath("/admin/cards");
   revalidatePath(`/admin/business/${businessId}`);
 }
 
-/** Toggle a card between active and disabled (never delete). */
+/** Unassign a card: detach from its business and return it to the pool. */
+export async function unassignCard(formData: FormData) {
+  await requireAdmin();
+  const cardId = String(formData.get("card_id") ?? "");
+  if (!cardId) return;
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("cards")
+    .update({ business_id: null, status: "unassigned" })
+    .eq("id", cardId);
+  if (error) throw new Error(`Could not unassign card: ${error.message}`);
+
+  revalidatePath("/admin/cards");
+}
+
+/** Toggle an assigned card between active and disabled (never delete). */
 export async function setCardStatus(formData: FormData) {
   const cardId = String(formData.get("card_id") ?? "");
   const businessId = String(formData.get("business_id") ?? "");
@@ -98,7 +157,12 @@ export async function setCardStatus(formData: FormData) {
   if (!cardId || (status !== "active" && status !== "disabled")) return;
 
   const supabase = await createClient();
-  await supabase.from("cards").update({ status }).eq("id", cardId);
+  const { error } = await supabase
+    .from("cards")
+    .update({ status })
+    .eq("id", cardId);
+  if (error) throw new Error(`Could not update card: ${error.message}`);
 
-  revalidatePath(`/admin/business/${businessId}`);
+  revalidatePath("/admin/cards");
+  if (businessId) revalidatePath(`/admin/business/${businessId}`);
 }

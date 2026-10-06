@@ -6,7 +6,7 @@ export type BusinessType =
   | "retail"
   | "other";
 
-export type CardStatus = "active" | "disabled";
+export type CardStatus = "unassigned" | "active" | "disabled";
 
 export type EventType = "QR" | "NFC" | "GOOGLE_CLICK" | "UNKNOWN";
 
@@ -26,7 +26,7 @@ export interface Business {
 export interface Card {
   id: string;
   public_token: string;
-  business_id: string;
+  business_id: string | null;
   status: CardStatus;
   created_at: string;
 }

@@ -55,7 +55,7 @@ export async function GET() {
         csv("card"),
         csv(c.id),
         csv(c.business_id),
-        csv(bName.get(c.business_id) ?? ""),
+        csv(c.business_id ? bName.get(c.business_id) ?? "" : ""),
         csv(c.public_token),
         csv(c.status),
         csv(""),
