@@ -108,10 +108,13 @@ export async function createOwnerUser(formData: FormData) {
   const admin = createAdminClient();
 
   // Create the auth user (email confirmed so they can log in immediately).
+  // Embed role in app_metadata so it rides inside the JWT — getCurrentUser()
+  // then reads the role from the token with no profiles query.
   const { data: created, error: createErr } = await admin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
+    app_metadata: { role: "owner" },
   });
   if (createErr || !created.user) {
     throw new Error(`Could not create user: ${createErr?.message ?? "unknown"}`);

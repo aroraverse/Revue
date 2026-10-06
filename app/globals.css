@@ -12,5 +12,48 @@ body {
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 antialiased;
+  @apply text-slate-900 antialiased;
+  /* Soft, premium background wash. */
+  background:
+    radial-gradient(1200px 600px at 100% -10%, rgba(99, 102, 241, 0.08), transparent 60%),
+    radial-gradient(900px 500px at -10% 0%, rgba(16, 185, 129, 0.06), transparent 55%),
+    #f6f7fb;
+}
+
+@layer components {
+  /* Reusable surface card. */
+  .surface {
+    @apply rounded-2xl border border-slate-200/80 bg-white shadow-sm;
+  }
+
+  /* Primary button. */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-5 py-2.5
+      font-semibold text-white shadow-sm transition
+      hover:bg-brand-dark active:scale-[0.98]
+      focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40;
+  }
+
+  /* Secondary / ghost button. */
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white
+      px-4 py-2 font-medium text-slate-700 transition
+      hover:border-slate-400 hover:bg-slate-50 active:scale-[0.98]
+      focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/30;
+  }
+
+  /* Text input / select baseline. */
+  .field {
+    @apply w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-slate-900
+      shadow-sm transition placeholder:text-slate-400
+      focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/25;
+  }
+}
+
+/* Respect reduced-motion preferences. */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
 }

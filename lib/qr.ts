@@ -1,19 +1,18 @@
 import QRCode from "qrcode";
 import { headers } from "next/headers";
+import { cache } from "react";
 
 /**
- * Base URL without trailing slash.
+ * Base URL without trailing slash. Memoized per-request with cache() so list
+ * pages that build links for many cards don't re-read headers each time.
  *
  * Resolution order:
  *   1. NEXT_PUBLIC_BASE_URL env (explicit override — use in production).
  *   2. The live request host (works even if the env var was not set at build
  *      time, e.g. the first Vercel deploy before the var was added).
  *   3. http://localhost:3000 as a last resort.
- *
- * Because NEXT_PUBLIC_* values are inlined at BUILD time, option 2 is what
- * saves you when the env var is wrong/missing on the deployed build.
  */
-export async function baseUrl(): Promise<string> {
+export const baseUrl = cache(async (): Promise<string> => {
   const env = process.env.NEXT_PUBLIC_BASE_URL;
   if (env && !env.includes("localhost")) {
     return env.replace(/\/$/, "");
@@ -29,7 +28,7 @@ export async function baseUrl(): Promise<string> {
   }
 
   return (env || "http://localhost:3000").replace(/\/$/, "");
-}
+});
 
 /** The QR link (static) encodes the QR source param. */
 export async function qrLink(token: string): Promise<string> {

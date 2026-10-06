@@ -36,10 +36,26 @@ export default async function CardsPoolPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="text-xl font-bold">Card pool</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-bold">Card pool</h1>
+        <div className="flex flex-wrap gap-2 text-sm">
+          <a
+            href="/admin/cards/print?filter=unassigned"
+            className="rounded-lg border border-slate-300 px-4 py-2 font-semibold"
+          >
+            Print unassigned QRs
+          </a>
+          <a
+            href="/admin/cards/print?filter=all"
+            className="rounded-lg border border-slate-300 px-4 py-2 font-semibold"
+          >
+            Print all QRs
+          </a>
+        </div>
+      </div>
 
       {/* Mint new cards */}
-      <section className="rounded-lg border border-slate-200 bg-white p-4">
+      <section className="surface p-4">
         <h2 className="mb-2 font-semibold">Mint new cards</h2>
         <p className="mb-3 text-sm text-slate-500">
           Creates blank, unassigned cards with auto-generated tokens. Print
@@ -57,7 +73,7 @@ export default async function CardsPoolPage() {
               className="w-28 rounded-lg border border-slate-300 p-2.5"
             />
           </label>
-          <button className="rounded-lg bg-brand px-5 py-2.5 font-semibold text-white">
+          <button className="btn-primary">
             Mint cards
           </button>
         </form>
@@ -103,7 +119,7 @@ export default async function CardsPoolPage() {
                         </option>
                       ))}
                     </select>
-                    <button className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white">
+                    <button className="btn-primary px-4 py-2 text-sm">
                       Assign
                     </button>
                   </form>
@@ -175,3 +191,4 @@ export default async function CardsPoolPage() {
     </div>
   );
 }
+

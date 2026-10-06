@@ -36,7 +36,7 @@ export default async function UsersPage() {
       <h1 className="text-xl font-bold">Users</h1>
 
       {/* Create owner login */}
-      <section className="rounded-lg border border-slate-200 bg-white p-4">
+      <section className="surface p-4">
         <h2 className="mb-2 font-semibold">Add a business owner</h2>
         <p className="mb-3 text-sm text-slate-500">
           Creates a login for an owner and assigns them a business. They can
@@ -49,7 +49,7 @@ export default async function UsersPage() {
             type="email"
             required
             placeholder="owner@example.com"
-            className="rounded-lg border border-slate-300 p-2.5"
+            className="field"
           />
           <input
             name="password"
@@ -57,11 +57,11 @@ export default async function UsersPage() {
             required
             minLength={6}
             placeholder="Temporary password (min 6 chars)"
-            className="rounded-lg border border-slate-300 p-2.5"
+            className="field"
           />
           <select
             name="business_id"
-            className="rounded-lg border border-slate-300 p-2.5"
+            className="field"
             defaultValue=""
           >
             <option value="">Assign a business (optional)…</option>
@@ -72,7 +72,7 @@ export default async function UsersPage() {
               </option>
             ))}
           </select>
-          <button className="rounded-lg bg-brand px-5 py-2.5 font-semibold text-white">
+          <button className="btn-primary">
             Create owner login
           </button>
         </form>
@@ -104,3 +104,5 @@ export default async function UsersPage() {
     </div>
   );
 }
+
+

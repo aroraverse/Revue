@@ -18,14 +18,19 @@ function StatCard({
   label,
   value,
   accent,
+  icon,
 }: {
   label: string;
   value: number;
   accent: string;
+  icon: string;
 }) {
   return (
-    <div className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-4">
-      <span className={`text-2xl font-bold ${accent}`}>{value}</span>
+    <div className="surface flex flex-col gap-1 p-4">
+      <span className="text-base">{icon}</span>
+      <span className={`text-2xl font-extrabold tabular-nums ${accent}`}>
+        {value}
+      </span>
       <span className="text-xs font-medium text-slate-500">{label}</span>
     </div>
   );
@@ -35,14 +40,17 @@ function StatCard({
 function StatWindow({ title, c }: { title: string; c: Counts }) {
   return (
     <div className="flex flex-col gap-2">
-      <h3 className="text-sm font-semibold text-slate-600">{title}</h3>
-      <div className="grid grid-cols-3 gap-2">
-        <StatCard label="QR scans" value={c.QR} accent="text-brand" />
-        <StatCard label="NFC taps" value={c.NFC} accent="text-brand" />
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+        {title}
+      </h3>
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        <StatCard label="QR scans" value={c.QR} accent="text-brand" icon="📷" />
+        <StatCard label="NFC taps" value={c.NFC} accent="text-brand" icon="📲" />
         <StatCard
           label="Google clicks"
           value={c.GOOGLE_CLICK}
           accent="text-green-600"
+          icon="⭐"
         />
       </div>
     </div>
@@ -119,13 +127,16 @@ export default async function BusinessDetail({
     <section>
       <Link
         href={`/admin/business/${id}/feedback`}
-        className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-4 font-medium hover:border-brand"
+        className="surface flex items-center justify-between gap-2 px-4 py-4 font-medium transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-md"
       >
-        <span className="flex items-center gap-2">
-          <span className="text-lg">📥</span> Feedback inbox
+        <span className="flex items-center gap-2.5">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-lg">
+            📥
+          </span>
+          Feedback inbox
         </span>
         {lowCount > 0 ? (
-          <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+          <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700">
             {lowCount} needs attention
           </span>
         ) : (
@@ -155,10 +166,10 @@ export default async function BusinessDetail({
 
       {/* Edit business (admin only) */}
       <section>
-        <h2 className="mb-3 font-semibold">Edit business</h2>
+        <h2 className="mb-3 text-lg font-semibold">Edit business</h2>
         <form
           action={updateBusiness}
-          className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4"
+          className="surface flex flex-col gap-3 p-4"
         >
           <input type="hidden" name="id" value={b.id} />
           <input
@@ -166,13 +177,9 @@ export default async function BusinessDetail({
             required
             defaultValue={b.name}
             placeholder="Business name"
-            className="rounded-lg border border-slate-300 p-2.5"
+            className="field"
           />
-          <select
-            name="type"
-            defaultValue={b.type}
-            className="rounded-lg border border-slate-300 p-2.5"
-          >
+          <select name="type" defaultValue={b.type} className="field">
             {TYPES.map((t) => (
               <option key={t} value={t}>
                 {t}
@@ -183,14 +190,14 @@ export default async function BusinessDetail({
             name="summary"
             defaultValue={b.summary ?? ""}
             placeholder="Short summary (optional)"
-            className="rounded-lg border border-slate-300 p-2.5"
+            className="field"
           />
           <input
             name="logo_url"
             type="url"
             defaultValue={b.logo_url ?? ""}
             placeholder="Logo URL (optional)"
-            className="rounded-lg border border-slate-300 p-2.5"
+            className="field"
           />
           <input
             name="google_review_url"
@@ -198,12 +205,10 @@ export default async function BusinessDetail({
             required
             defaultValue={b.google_review_url}
             placeholder="Google review URL"
-            className="rounded-lg border border-slate-300 p-2.5"
+            className="field"
           />
           <div className="flex flex-wrap gap-3">
-            <button className="rounded-lg bg-brand px-5 py-2.5 font-semibold text-white">
-              Save changes
-            </button>
+            <button className="btn-primary">Save changes</button>
           </div>
         </form>
         <div className="mt-3">
@@ -214,11 +219,8 @@ export default async function BusinessDetail({
       {/* Assigned cards (admin only) */}
       <section>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-semibold">Assigned cards</h2>
-          <Link
-            href="/admin/cards"
-            className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white"
-          >
+          <h2 className="text-lg font-semibold">Assigned cards</h2>
+          <Link href="/admin/cards" className="btn-primary px-4 py-2 text-sm">
             Assign from pool
           </Link>
         </div>
@@ -233,10 +235,7 @@ export default async function BusinessDetail({
               const l = linksFor(base, c.public_token);
               const cardCounts = analytics.perCard[c.id];
               return (
-                <li
-                  key={c.id}
-                  className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4"
-                >
+                <li key={c.id} className="surface flex flex-col gap-3 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-bold">

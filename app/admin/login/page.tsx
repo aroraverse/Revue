@@ -32,36 +32,51 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-[390px] flex-col justify-center gap-6 px-6">
-      <h1 className="text-2xl font-bold">Admin sign in</h1>
-      <form onSubmit={signIn} className="flex flex-col gap-4">
-        <label className="flex flex-col gap-1">
+    <main className="mx-auto flex min-h-screen max-w-[400px] flex-col justify-center gap-6 px-6">
+      <div className="flex flex-col items-center gap-3 text-center">
+        <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand to-indigo-400 text-xl font-black text-white shadow-md">
+          R
+        </span>
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight">ReviewTap</h1>
+          <p className="mt-1 text-sm text-slate-500">Sign in to your dashboard</p>
+        </div>
+      </div>
+
+      <form onSubmit={signIn} className="surface flex flex-col gap-4 p-6">
+        <label className="flex flex-col gap-1.5">
           <span className="text-sm font-medium">Email</span>
           <input
             type="email"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="rounded-lg border border-slate-300 p-3"
+            className="field"
             autoComplete="email"
+            placeholder="you@example.com"
           />
         </label>
-        <label className="flex flex-col gap-1">
+        <label className="flex flex-col gap-1.5">
           <span className="text-sm font-medium">Password</span>
           <input
             type="password"
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="rounded-lg border border-slate-300 p-3"
+            className="field"
             autoComplete="current-password"
+            placeholder="••••••••"
           />
         </label>
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && (
+          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+            {error}
+          </p>
+        )}
         <button
           type="submit"
           disabled={busy}
-          className="rounded-lg bg-brand px-5 py-3 font-semibold text-white disabled:opacity-60"
+          className="btn-primary w-full py-3 disabled:opacity-60"
         >
           {busy ? "Signing in…" : "Sign in"}
         </button>

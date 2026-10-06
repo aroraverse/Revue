@@ -30,14 +30,14 @@ export default async function NewBusinessPage() {
             name="name"
             required
             placeholder="Business name"
-            className="rounded-lg border border-slate-300 p-2.5"
+            className="field"
           />
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-sm font-medium">Type</span>
           <select
             name="type"
-            className="rounded-lg border border-slate-300 p-2.5"
+            className="field"
             defaultValue="restaurant"
           >
             {TYPES.map((t) => (
@@ -52,7 +52,7 @@ export default async function NewBusinessPage() {
           <input
             name="summary"
             placeholder="Family-run Italian kitchen"
-            className="rounded-lg border border-slate-300 p-2.5"
+            className="field"
           />
         </label>
         <label className="flex flex-col gap-1">
@@ -61,7 +61,7 @@ export default async function NewBusinessPage() {
             name="logo_url"
             type="url"
             placeholder="https://…"
-            className="rounded-lg border border-slate-300 p-2.5"
+            className="field"
           />
         </label>
         <label className="flex flex-col gap-1">
@@ -71,13 +71,15 @@ export default async function NewBusinessPage() {
             type="url"
             required
             placeholder="https://search.google.com/local/writereview?placeid=…"
-            className="rounded-lg border border-slate-300 p-2.5"
+            className="field"
           />
         </label>
-        <button className="rounded-lg bg-brand px-5 py-2.5 font-semibold text-white">
+        <button className="btn-primary">
           Create business
         </button>
       </form>
     </div>
   );
 }
+
+

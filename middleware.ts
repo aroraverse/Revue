@@ -2,8 +2,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 /**
- * Refreshes the Supabase auth session on every admin request so Server
- * Components always see a valid session. Only runs on /admin routes.
+ * Keeps the Supabase auth session fresh for admin pages. Uses getSession(),
+ * which only performs a network refresh when the access token is actually
+ * near/at expiry — on most navigations it just reads the local cookie, so it
+ * does not add a round-trip to every click.
  */
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -29,10 +31,14 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  await supabase.auth.getUser();
+  await supabase.auth.getSession();
   return response;
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  /**
+   * Run only on admin PAGES. Exclude the on-demand QR image route and the
+   * keepalive/export endpoints so image/data requests don't pay the auth cost.
+   */
+  matcher: ["/admin/((?!qr/).*)"],
 };
