@@ -37,14 +37,14 @@ export default async function DashboardLayout({
               >
                 Users
               </Link>
+              <a
+                href="/admin/export"
+                className="text-slate-600 hover:text-slate-900"
+              >
+                Export CSV
+              </a>
             </>
           )}
-          <a
-            href="/admin/export"
-            className="text-slate-600 hover:text-slate-900"
-          >
-            Export CSV
-          </a>
         </nav>
         <div className="flex items-center justify-between gap-3 text-sm sm:justify-end">
           <span className="truncate text-slate-500">

@@ -12,13 +12,12 @@ function csv(value: unknown): string {
 }
 
 /**
- * Downloads a CSV backup of the caller's businesses and cards.
- * RLS scopes rows to admin (all) or owner (own). Requires a session.
+ * Downloads a CSV backup of all businesses and cards. Admin only.
  */
 export async function GET() {
   const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ ok: false }, { status: 401 });
+  if (!user || user.role !== "admin") {
+    return NextResponse.json({ ok: false }, { status: 403 });
   }
 
   const supabase = await createClient();

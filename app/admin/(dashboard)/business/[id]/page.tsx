@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth";
 import type { Business, Card, Feedback } from "@/lib/types";
 import { baseUrl, linksFor } from "@/lib/qr";
 import { getBusinessAnalytics, type Counts } from "@/lib/analytics";
@@ -12,15 +13,38 @@ export const dynamic = "force-dynamic";
 
 const TYPES = ["restaurant", "cafe", "salon", "clinic", "retail", "other"];
 
-function CountRow({ label, c }: { label: string; c: Counts }) {
+/** A single analytics metric shown as a big, friendly stat card. */
+function StatCard({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: number;
+  accent: string;
+}) {
   return (
-    <div className="flex items-center justify-between py-1 text-sm">
-      <span className="text-slate-500">{label}</span>
-      <span className="flex flex-wrap gap-2 text-right">
-        <span>QR {c.QR}</span>
-        <span>NFC {c.NFC}</span>
-        <span>Google {c.GOOGLE_CLICK}</span>
-      </span>
+    <div className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-4">
+      <span className={`text-2xl font-bold ${accent}`}>{value}</span>
+      <span className="text-xs font-medium text-slate-500">{label}</span>
+    </div>
+  );
+}
+
+/** A window (7d/30d/all) rendered as a row of stat cards. */
+function StatWindow({ title, c }: { title: string; c: Counts }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <h3 className="text-sm font-semibold text-slate-600">{title}</h3>
+      <div className="grid grid-cols-3 gap-2">
+        <StatCard label="QR scans" value={c.QR} accent="text-brand" />
+        <StatCard label="NFC taps" value={c.NFC} accent="text-brand" />
+        <StatCard
+          label="Google clicks"
+          value={c.GOOGLE_CLICK}
+          accent="text-green-600"
+        />
+      </div>
     </div>
   );
 }
@@ -31,9 +55,9 @@ export default async function BusinessDetail({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const user = await getCurrentUser();
   const supabase = await createClient();
 
-  // Parallelize all queries + base URL resolution.
   const [{ data: business }, { data: cardData }, { data: lowFb }, analytics, base] =
     await Promise.all([
       supabase.from("businesses").select("*").eq("id", id).maybeSingle(),
@@ -51,40 +75,85 @@ export default async function BusinessDetail({
   const b = business as Business;
   const cards = (cardData ?? []) as Card[];
   const lowCount = (lowFb as Feedback[] | null)?.length ?? 0;
+  const isAdmin = user?.role === "admin";
 
+  // ---- Shared header + analytics + feedback (both roles see these) ----------
+  const header = (
+    <div className="flex flex-col gap-1">
+      {isAdmin && (
+        <Link href="/admin" className="text-sm text-slate-500">
+          ← All businesses
+        </Link>
+      )}
+      <div className="flex items-center gap-3">
+        {b.logo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={b.logo_url}
+            alt={b.name}
+            className="h-12 w-12 rounded-full object-cover"
+          />
+        ) : (
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand text-xl font-bold text-white">
+            {b.name.charAt(0).toUpperCase()}
+          </div>
+        )}
+        <div>
+          <h1 className="text-xl font-bold">{b.name}</h1>
+          <p className="text-sm capitalize text-slate-500">{b.type}</p>
+        </div>
+      </div>
+    </div>
+  );
+
+  const analyticsSection = (
+    <section className="flex flex-col gap-5">
+      <h2 className="text-lg font-semibold">Analytics</h2>
+      <StatWindow title="Last 7 days" c={analytics.last7} />
+      <StatWindow title="Last 30 days" c={analytics.last30} />
+      <StatWindow title="All time" c={analytics.total} />
+    </section>
+  );
+
+  const feedbackSection = (
+    <section>
+      <Link
+        href={`/admin/business/${id}/feedback`}
+        className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-4 font-medium hover:border-brand"
+      >
+        <span className="flex items-center gap-2">
+          <span className="text-lg">📥</span> Feedback inbox
+        </span>
+        {lowCount > 0 ? (
+          <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+            {lowCount} needs attention
+          </span>
+        ) : (
+          <span className="text-sm text-slate-400">View all →</span>
+        )}
+      </Link>
+    </section>
+  );
+
+  // ---- Owner view: clean, read-only analytics + feedback only --------------
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col gap-8">
+        {header}
+        {analyticsSection}
+        {feedbackSection}
+      </div>
+    );
+  }
+
+  // ---- Admin view: full management ----------------------------------------
   return (
     <div className="flex flex-col gap-8">
-      <div>
-        <Link href="/admin" className="text-sm text-slate-500">
-          ← Back
-        </Link>
-        <h1 className="mt-2 text-xl font-bold">{b.name}</h1>
-      </div>
+      {header}
+      {analyticsSection}
+      {feedbackSection}
 
-      {/* Analytics */}
-      <section className="rounded-lg border border-slate-200 bg-white p-4">
-        <h2 className="mb-2 font-semibold">Analytics</h2>
-        <CountRow label="Last 7 days" c={analytics.last7} />
-        <CountRow label="Last 30 days" c={analytics.last30} />
-        <CountRow label="All time" c={analytics.total} />
-      </section>
-
-      {/* Feedback inbox link */}
-      <section>
-        <Link
-          href={`/admin/business/${id}/feedback`}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 font-medium hover:border-brand"
-        >
-          Feedback inbox
-          {lowCount > 0 && (
-            <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
-              {lowCount} low
-            </span>
-          )}
-        </Link>
-      </section>
-
-      {/* Edit business */}
+      {/* Edit business (admin only) */}
       <section>
         <h2 className="mb-3 font-semibold">Edit business</h2>
         <form
@@ -142,7 +211,7 @@ export default async function BusinessDetail({
         </div>
       </section>
 
-      {/* Assigned cards */}
+      {/* Assigned cards (admin only) */}
       <section>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-semibold">Assigned cards</h2>

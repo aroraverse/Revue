@@ -21,27 +21,32 @@ function parseType(v: FormDataEntryValue | null): BusinessType {
   return (TYPES as string[]).includes(s) ? (s as BusinessType) : "other";
 }
 
-/** Create a business owned by the current user. */
+/** Create a business (admin only). */
 export async function createBusiness(formData: FormData) {
-  const user = await getCurrentUser();
-  if (!user) return;
+  const admin = await requireAdmin();
 
   const supabase = await createClient();
-  const { error } = await supabase.from("businesses").insert({
-    name: String(formData.get("name") ?? "").trim(),
-    type: parseType(formData.get("type")),
-    summary: String(formData.get("summary") ?? "").trim() || null,
-    logo_url: String(formData.get("logo_url") ?? "").trim() || null,
-    google_review_url: String(formData.get("google_review_url") ?? "").trim(),
-    owner_user_id: user.id,
-  });
+  const { data, error } = await supabase
+    .from("businesses")
+    .insert({
+      name: String(formData.get("name") ?? "").trim(),
+      type: parseType(formData.get("type")),
+      summary: String(formData.get("summary") ?? "").trim() || null,
+      logo_url: String(formData.get("logo_url") ?? "").trim() || null,
+      google_review_url: String(formData.get("google_review_url") ?? "").trim(),
+      owner_user_id: admin.id,
+    })
+    .select("id")
+    .single();
   if (error) throw new Error(`Could not create business: ${error.message}`);
 
   revalidatePath("/admin");
+  redirect(`/admin/business/${data.id}`);
 }
 
-/** Update a business. */
+/** Update a business (admin only). */
 export async function updateBusiness(formData: FormData) {
+  await requireAdmin();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
@@ -64,12 +69,10 @@ export async function updateBusiness(formData: FormData) {
 
 /**
  * Soft-delete a business: set deleted_at. Never hard-deletes, so cards and
- * history are preserved. Allowed for admins and the owning user (RLS update
- * policy already restricts this). Owners can delete their own business.
+ * history are preserved. Admin only — owners cannot delete businesses.
  */
 export async function deleteBusiness(formData: FormData) {
-  const user = await getCurrentUser();
-  if (!user) throw new Error("You must be signed in.");
+  await requireAdmin();
 
   const id = String(formData.get("id") ?? "");
   if (!id) return;
@@ -140,9 +143,7 @@ async function requireAdmin() {
   const user = await getCurrentUser();
   if (!user) throw new Error("You must be signed in.");
   if (user.role !== "admin") {
-    throw new Error(
-      "Only an admin can mint or assign cards. Set your profile role to 'admin'."
-    );
+    throw new Error("This action is restricted to admins.");
   }
   return user;
 }
@@ -220,8 +221,9 @@ export async function unassignCard(formData: FormData) {
   revalidatePath("/admin/cards");
 }
 
-/** Toggle an assigned card between active and disabled (never delete). */
+/** Toggle an assigned card between active and disabled (admin only). */
 export async function setCardStatus(formData: FormData) {
+  await requireAdmin();
   const cardId = String(formData.get("card_id") ?? "");
   const businessId = String(formData.get("business_id") ?? "");
   const status = String(formData.get("status") ?? "");
