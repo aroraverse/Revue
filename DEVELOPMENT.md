@@ -120,3 +120,11 @@ ratings, deterministic by seed.
 - `npm run verify` — one shot: `typecheck` → `test` → `build`. Run before every
   push; if it passes, the Vercel build will too.
 - `npm run typecheck` / `npm run test` / `npm run build` — individually.
+
+
+## One thing to set
+  
+  The "Contact us" link uses a new env var NEXT_PUBLIC_CONTACT_URL. I defaulted it to mailto:hello@reviewtap.app — change it to your real email or landing page:
+  - Locally it's in .env.local.
+  - On Vercel, add NEXT_PUBLIC_CONTACT_URL in Settings → Environment Variables (e.g. mailto:you@yourbrand.com or https://yourbrand.com/contact) and redeploy.
+  

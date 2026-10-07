@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { compose } from "@/lib/compose";
 import type { BusinessType } from "@/lib/types";
 import { logEvent, saveFeedback } from "./actions";
@@ -33,8 +33,15 @@ export default function ReviewFlow({
   const [draft, setDraft] = useState("");
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copying, setCopying] = useState(false);
+  const [thanksKind, setThanksKind] = useState<"google" | "private">("google");
 
   const isHigh = stars >= 4;
+
+  // Where "Contact us" on the thank-you screen points. Set
+  // NEXT_PUBLIC_CONTACT_URL (an email like "mailto:you@brand.com" or a page).
+  const contactUrl =
+    process.env.NEXT_PUBLIC_CONTACT_URL || "mailto:hello@reviewtap.app";
 
   function toggleTag(tag: string) {
     setSelectedTags((prev) =>
@@ -86,20 +93,59 @@ export default function ReviewFlow({
     }
   }
 
-  // Copy draft, log GOOGLE_CLICK, open Google review page.
-  async function copyAndOpenGoogle(text: string) {
+  // Robust copy that works on mobile and non-HTTPS (LAN testing) contexts.
+  // Tries the async Clipboard API, then falls back to a hidden textarea +
+  // execCommand. Returns whether the copy succeeded.
+  function copyText(text: string): boolean {
+    // Legacy fallback first works in the most contexts within a user gesture.
     try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.top = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, text.length);
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      if (ok) return true;
     } catch {
-      // Clipboard may be blocked; still proceed to Google.
+      // fall through to async API
     }
+    // Async Clipboard API (fire-and-forget; may resolve after we navigate).
+    try {
+      if (navigator.clipboard?.writeText) {
+        void navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch {
+      // ignore
+    }
+    return false;
+  }
+
+  // Copy draft, show an animated "Copied!" state for ~1.5s so the user sees
+  // it worked, then open Google (new tab) and show the branded thank-you.
+  function copyAndOpenGoogle(text: string) {
+    if (copying) return;
+    const ok = copyText(text);
+    setCopied(ok);
+    setCopying(true);
     void logEvent({ cardId, businessId, type: "GOOGLE_CLICK" });
-    window.open(googleReviewUrl, "_blank", "noopener,noreferrer");
+
+    window.setTimeout(() => {
+      // Open Google in a new tab; our tab shows the thank-you + upsell.
+      window.open(googleReviewUrl, "_blank", "noopener,noreferrer");
+      setThanksKind("google");
+      setStep("thanks");
+      setCopying(false);
+    }, 1500);
   }
 
   async function submitPrivate() {
     await persistFeedback(null);
+    setThanksKind("private");
     setStep("thanks");
   }
 
@@ -202,12 +248,24 @@ export default function ReviewFlow({
           </button>
           <button
             onClick={() => copyAndOpenGoogle(draft)}
-            className="rounded-lg bg-brand px-5 py-3 font-semibold text-white"
+            disabled={copying}
+            className={`flex items-center justify-center gap-2 rounded-lg px-5 py-3 font-semibold text-white transition-all duration-300 ${
+              copying ? "scale-[1.02] bg-green-600" : "bg-brand"
+            }`}
           >
-            Copy &amp; open Google
+            {copying ? (
+              <>
+                <span className="animate-[pop_300ms_ease-out] text-lg">✓</span>
+                Copied! Opening Google…
+              </>
+            ) : (
+              <>Copy &amp; open Google</>
+            )}
           </button>
           <p className="text-center text-sm text-slate-500">
-            {copied ? "Copied! " : ""}Tap your stars on Google, paste, and post.
+            {copying
+              ? "Your review is copied. Opening Google in a moment…"
+              : "Tap your stars on Google, then paste and post."}
           </p>
         </section>
       )}
@@ -245,15 +303,49 @@ export default function ReviewFlow({
       )}
 
       {step === "thanks" && (
-        <section className="flex flex-col items-center gap-4 py-8 text-center">
-          <div className="text-5xl" aria-hidden>
-            🙏
+        <section className="flex flex-col items-center gap-5 py-8 text-center">
+          {/* ReviewTap brand mark */}
+          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand to-indigo-400 text-xl font-black text-white shadow-md">
+            R
+          </span>
+
+          <div className="flex flex-col gap-2">
+            <h2 className="text-xl font-bold">Thanks for the review!</h2>
+            <p className="text-slate-600">
+              {thanksKind === "google"
+                ? "Google opened in a new tab with your draft copied. Just paste and post. If it didn't open, use the button below."
+                : "Your feedback has been sent to the owner. We really appreciate you taking the time."}
+            </p>
           </div>
-          <h2 className="text-xl font-bold">Thank you!</h2>
-          <p className="text-slate-600">
-            Your feedback has been sent to the owner. We appreciate you taking
-            the time.
-          </p>
+
+          {thanksKind === "google" && (
+            <a
+              href={googleReviewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-lg bg-brand px-5 py-3 font-semibold text-white"
+            >
+              Continue to Google
+            </a>
+          )}
+
+          {/* Upsell / contact */}
+          <div className="mt-4 w-full rounded-2xl border border-slate-200 bg-white p-4 text-sm">
+            <p className="font-semibold">Want this for your business?</p>
+            <p className="mt-1 text-slate-500">
+              Collect more 5-star reviews with your own tap-to-review cards.
+            </p>
+            <a
+              href={contactUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-flex rounded-lg border border-brand px-4 py-2 font-semibold text-brand transition hover:bg-brand hover:text-white"
+            >
+              Contact us
+            </a>
+          </div>
+
+          <p className="mt-2 text-xs text-slate-400">Powered by ReviewTap</p>
         </section>
       )}
     </main>
