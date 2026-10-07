@@ -212,7 +212,11 @@ export default async function BusinessDetail({
           </div>
         </form>
         <div className="mt-3">
-          <DeleteBusinessButton businessId={b.id} />
+          <DeleteBusinessButton
+            businessId={b.id}
+            businessName={b.name}
+            cardCount={cards.length}
+          />
         </div>
       </section>
 

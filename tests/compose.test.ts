@@ -83,3 +83,50 @@ test("only selected tags are reflected (no invented content)", () => {
   // Should not mention unrelated tag concepts like coffee or stylist.
   assert.ok(!/coffee|stylist|clinic/i.test(out));
 });
+
+test("output never contains em or en dashes (reads human, not AI)", () => {
+  const base = {
+    businessName: "Bella Pasta",
+    type: "restaurant" as const,
+    stars: 5,
+    tags: ["Friendly staff", "Tasty food", "Clean space", "Good value"],
+    note: "Great night out — would come back", // note intentionally has a dash
+  };
+  for (let seed = 0; seed < 200; seed++) {
+    const out = compose({ ...base, seed });
+    assert.ok(!/[—–]/.test(out), `seed ${seed} contained a dash: ${out}`);
+  }
+});
+
+test("no lowercase start after a sentence period", () => {
+  const base = {
+    businessName: "Bella Pasta",
+    type: "restaurant" as const,
+    stars: 5,
+    tags: ["Friendly staff", "Tasty food", "Great ambience", "Good value"],
+    note: null,
+  };
+  for (let seed = 0; seed < 200; seed++) {
+    const out = compose({ ...base, seed });
+    assert.ok(
+      !/\.\s+[a-z]/.test(out),
+      `seed ${seed} has lowercase after period: ${out}`
+    );
+  }
+});
+
+test("high variety: many distinct comments across seeds", () => {
+  const base = {
+    businessName: "Bella Pasta",
+    type: "restaurant" as const,
+    stars: 5,
+    tags: ["Friendly staff", "Tasty food", "Great ambience"],
+    note: null,
+  };
+  const seen = new Set<string>();
+  for (let seed = 0; seed < 100; seed++) {
+    seen.add(compose({ ...base, seed }));
+  }
+  // With the expanded phrase pool, 100 seeds should yield lots of unique text.
+  assert.ok(seen.size >= 60, `expected high variety, got ${seen.size} unique`);
+});

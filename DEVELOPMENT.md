@@ -56,7 +56,9 @@ a friendly branded page (never a raw 404).
 
 ## Server actions (`app/admin/(dashboard)/business-actions.ts`)
 All mutations call `requireAdmin()` (defense in depth beyond RLS):
-`createBusiness`, `updateBusiness`, `deleteBusiness` (soft), `mintCards`,
+`createBusiness`, `updateBusiness`, `deleteBusiness` (soft; also releases the
+business's cards back to the unassigned pool so they can be reused; UI requires
+typing the business name + a final confirm), `mintCards`,
 `assignCard`, `unassignCard`, `setCardStatus`, `createOwnerUser`.
 
 ## Performance design (why it's fast)
@@ -93,6 +95,28 @@ All mutations call `requireAdmin()` (defense in depth beyond RLS):
 - QR codes are static (encode a permanent URL); changing `google_review_url`
   applies instantly to every existing card.
 
+## Comment generator (`lib/compose.ts`)
+Template assembler, NOT AI (keeps the "no API keys" constraint). Pipeline:
+1. **Opener** — one line chosen by star bucket (high 4-5★ / low 1-3★), with the
+   business name injected.
+2. **Middle** — for each selected tag, look up `TAG_PHRASES[tag]` (~8-10
+   phrasings each), pick one at random, stitch 1-3 together with human
+   connectors (". ", ", ", ", and ", ". Also, ", ". Plus, "). Each connector
+   carries a `capNext` flag for correct casing.
+3. **Note** — the customer's typed note, verbatim (dashes normalized).
+4. **Closer** — a wrap-up by star bucket; sometimes dropped on high ratings for
+   a shorter, more natural feel.
+Randomness via a seedable PRNG (`makeRng`); Regenerate = new seed. Reflects
+ONLY the customer's selections/note. **No em/en dashes** anywhere (removed to
+avoid the "AI-written" tell). Variety: ~8-10 phrasings/tag → 100 seeds yield
+60+ unique comments for a 3-tag review (statistical near-uniqueness, not a
+guaranteed registry). Tests in `tests/compose.test.ts` assert: no dashes (200
+seeds), no lowercase-after-period, high variety, verbatim note, honest low
+ratings, deterministic by seed.
+
 ## Verify
-- `npm run build` — type-check + production build.
-- `npm test` — `lib/compose.ts` unit tests (Node test runner, TS strip types).
+- `npm run dev` — local server with hot reload at http://localhost:3000
+  (uses the real Supabase from `.env.local`). Test features here before pushing.
+- `npm run verify` — one shot: `typecheck` → `test` → `build`. Run before every
+  push; if it passes, the Vercel build will too.
+- `npm run typecheck` / `npm run test` / `npm run build` — individually.

@@ -68,8 +68,9 @@ export async function updateBusiness(formData: FormData) {
 }
 
 /**
- * Soft-delete a business: set deleted_at. Never hard-deletes, so cards and
- * history are preserved. Admin only — owners cannot delete businesses.
+ * Soft-delete a business: set deleted_at. Never hard-deletes, so history is
+ * preserved. Admin only. Its cards are released back to the UNASSIGNED pool so
+ * they can be reused for another business (the card itself never dies).
  */
 export async function deleteBusiness(formData: FormData) {
   await requireAdmin();
@@ -78,13 +79,27 @@ export async function deleteBusiness(formData: FormData) {
   if (!id) return;
 
   const supabase = await createClient();
+
+  // Soft-delete the business.
   const { error } = await supabase
     .from("businesses")
     .update({ deleted_at: new Date().toISOString() })
     .eq("id", id);
   if (error) throw new Error(`Could not delete business: ${error.message}`);
 
+  // Release its cards back to the pool (detach + mark unassigned). Use the
+  // service role so this always succeeds regardless of RLS timing.
+  const admin = createAdminClient();
+  const { error: cardErr } = await admin
+    .from("cards")
+    .update({ business_id: null, status: "unassigned" })
+    .eq("business_id", id);
+  if (cardErr) {
+    throw new Error(`Business deleted, but releasing cards failed: ${cardErr.message}`);
+  }
+
   revalidatePath("/admin");
+  revalidatePath("/admin/cards");
   redirect("/admin");
 }
 

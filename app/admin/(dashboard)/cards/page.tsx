@@ -31,8 +31,12 @@ export default async function CardsPoolPage() {
   const businesses = (bizData ?? []) as Pick<Business, "id" | "name">[];
   const bName = new Map(businesses.map((b) => [b.id, b.name]));
 
-  const unassigned = cards.filter((c) => !c.business_id);
-  const assigned = cards.filter((c) => c.business_id);
+  // A card counts as "assigned" only if its business still exists (not deleted).
+  // Cards pointing at a deleted/missing business are shown back in the pool so
+  // they can be reassigned (handles any left over from before auto-release).
+  const isAssigned = (c: Card) => !!c.business_id && bName.has(c.business_id);
+  const unassigned = cards.filter((c) => !isAssigned(c));
+  const assigned = cards.filter((c) => isAssigned(c));
 
   return (
     <div className="flex flex-col gap-8">

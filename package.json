@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "verify": "npm run typecheck && npm run test && npm run build",
     "seed": "node --env-file=.env.local scripts/seed.mjs"
   },
   "dependencies": {

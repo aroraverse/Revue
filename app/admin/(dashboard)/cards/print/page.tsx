@@ -2,7 +2,6 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import type { Card } from "@/lib/types";
-import { baseUrl, linksFor } from "@/lib/qr";
 import PrintButton from "./PrintButton";
 
 export const dynamic = "force-dynamic";
@@ -24,13 +23,10 @@ export default async function PrintCardsPage({
       : "all";
 
   const supabase = await createClient();
-  const [{ data: cardData }, base] = await Promise.all([
-    supabase
-      .from("cards")
-      .select("*")
-      .order("public_token", { ascending: true }),
-    baseUrl(),
-  ]);
+  const { data: cardData } = await supabase
+    .from("cards")
+    .select("*")
+    .order("public_token", { ascending: true });
 
   let cards = (cardData ?? []) as Card[];
   if (filter === "unassigned") cards = cards.filter((c) => !c.business_id);
@@ -89,21 +85,17 @@ export default async function PrintCardsPage({
         </p>
       ) : (
         <div className="qr-grid">
-          {cards.map((c) => {
-            const l = linksFor(base, c.public_token);
-            return (
-              <div key={c.id} className="qr-tile">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`/admin/qr/${c.public_token}`}
-                  alt={`QR for ${c.public_token}`}
-                  className="qr-img"
-                />
-                <div className="qr-token">{c.public_token}</div>
-                <div className="qr-url">{l.qr}</div>
-              </div>
-            );
-          })}
+          {cards.map((c) => (
+            <div key={c.id} className="qr-tile">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`/admin/qr/${c.public_token}`}
+                alt={`QR for ${c.public_token}`}
+                className="qr-img"
+              />
+              <div className="qr-token">{c.public_token}</div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -131,7 +123,6 @@ export default async function PrintCardsPage({
         }
         .qr-img { width: 100%; height: auto; max-width: 180px; }
         .qr-token { font-family: ui-monospace, monospace; font-weight: 700; font-size: 14px; }
-        .qr-url { font-size: 9px; color: #64748b; word-break: break-all; text-align: center; }
 
         @media print {
           /* Hide app chrome + toolbar so only the sheet prints. */
@@ -145,3 +136,4 @@ export default async function PrintCardsPage({
     </div>
   );
 }
+
