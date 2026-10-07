@@ -40,8 +40,23 @@ export default function ReviewFlow({
 
   // Where "Contact us" on the thank-you screen points. Set
   // NEXT_PUBLIC_CONTACT_URL (an email like "mailto:you@brand.com" or a page).
-  const contactUrl =
-    process.env.NEXT_PUBLIC_CONTACT_URL || "mailto:hello@reviewtap.app";
+  // Resolve the "Contact us" target from NEXT_PUBLIC_CONTACT_URL.
+  // Accepts: a full URL (https://…, wa.me/…), a mailto:, or a bare email.
+  // A bare email is turned into a Gmail compose link so it opens in the
+  // browser (mailto: often does nothing on laptops without a mail app).
+  const rawContact = process.env.NEXT_PUBLIC_CONTACT_URL || "sarthak7591@gmail.com";
+  const contactUrl = (() => {
+    const v = rawContact.trim();
+    if (/^https?:\/\//i.test(v) || v.startsWith("mailto:")) return v;
+    // bare email -> Gmail web compose
+    const subject = encodeURIComponent("ReviewTap for my business");
+    const body = encodeURIComponent(
+      "Hi, I scanned a ReviewTap card and I'd love this for my business. Please share details."
+    );
+    return `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(
+      v
+    )}&su=${subject}&body=${body}`;
+  })();
 
   function toggleTag(tag: string) {
     setSelectedTags((prev) =>
@@ -330,19 +345,38 @@ export default function ReviewFlow({
           )}
 
           {/* Upsell / contact */}
-          <div className="mt-4 w-full rounded-2xl border border-slate-200 bg-white p-4 text-sm">
-            <p className="font-semibold">Want this for your business?</p>
-            <p className="mt-1 text-slate-500">
-              Collect more 5-star reviews with your own tap-to-review cards.
-            </p>
-            <a
-              href={contactUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-3 inline-flex rounded-lg border border-brand px-4 py-2 font-semibold text-brand transition hover:bg-brand hover:text-white"
-            >
-              Contact us
-            </a>
+          <div className="mt-4 w-full overflow-hidden rounded-2xl bg-gradient-to-br from-brand to-indigo-500 p-[1px] shadow-lg">
+            <div className="rounded-2xl bg-white/95 p-5 text-left">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🚀</span>
+                <p className="text-base font-extrabold tracking-tight">
+                  Want more 5-star reviews?
+                </p>
+              </div>
+              <p className="mt-2 text-sm text-slate-600">
+                Get your own tap-to-review cards like this one. Turn happy
+                customers into glowing Google reviews, automatically.
+              </p>
+              <ul className="mt-3 flex flex-col gap-1.5 text-sm text-slate-600">
+                <li className="flex items-center gap-2">
+                  <span className="text-green-600">✓</span> QR + NFC review cards
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-green-600">✓</span> Auto-drafted comments
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-green-600">✓</span> Private feedback for low ratings
+                </li>
+              </ul>
+              <a
+                href={contactUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-3 font-semibold text-white shadow-sm transition hover:bg-brand-dark active:scale-[0.98]"
+              >
+                Get this for my business →
+              </a>
+            </div>
           </div>
 
           <p className="mt-2 text-xs text-slate-400">Powered by ReviewTap</p>
